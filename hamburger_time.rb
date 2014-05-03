@@ -13,8 +13,10 @@ class HamburgerTime < Gosu::Window
   HORIZ_CENTER = WIDTH / 2
   VERT_CENTER = HEIGHT / 2
   FLOOR = HEIGHT - 50
-  MAX_BURGERS = 10
+  MAX_FLOOR_BURGERS = 10
   EAT_DISTANCE = 50
+  MAX_BURGER_RATE = 30 # two per sec.
+  INITIAL_BURGER_RATE = 120 # one every ~2s
 
   def initialize
     super(WIDTH, HEIGHT, false)
@@ -26,15 +28,33 @@ class HamburgerTime < Gosu::Window
   end
 
   def draw
-    @player.draw
-    @hamburgers.each(&:draw)
-    @font.draw(@burgers_eaten.to_s, 10, 10, 0, 1.0, 1.0, 0xffffff00)
+    if floor_burgers >= MAX_FLOOR_BURGERS
+      draw_scores
+      @font.draw("Game Over :(", 10, 50, 0, 1.0, 1.0, 0xffff00ff)
+    else
+      @player.draw
+      @hamburgers.each(&:draw)
+      draw_scores
+    end
+  end
+
+  def draw_scores
+    @font.draw(':D ' + @burgers_eaten.to_s, 10, 10, 0, 1.0, 1.0, 0xffffff00)
+    @font.draw(':( ' + floor_burgers.to_s, 10, 30, 0, 1.0, 1.0, 0xffff00ff)
+  end
+
+  def floor_burgers
+    @hamburgers.count(&:floor?)
   end
 
   def button_down(id)
     if id == Gosu::KbEscape
       close
     end
+  end
+
+  def burger_rate
+    [INITIAL_BURGER_RATE - @burgers_eaten, MAX_BURGER_RATE].max
   end
 
   def update
@@ -51,7 +71,8 @@ class HamburgerTime < Gosu::Window
     if button_down? Gosu::KbRight or button_down? Gosu::GpRight then
       @player.move_right
     end
-    if rand(120) == 1 && @hamburgers.size < MAX_BURGERS
+
+    if rand(burger_rate) == 1
       @hamburgers << Hamburger.new(self)
     end
   end
@@ -82,6 +103,7 @@ class Hamburger
   def update
     if @y >= HamburgerTime::FLOOR
       @y = HamburgerTime::FLOOR
+      @state = :floor
     else
       @v += GRAVITY
       @y += @v
@@ -103,11 +125,15 @@ class Hamburger
   def eaten?
     @state == :eaten
   end
+
+  def floor?
+    @state == :floor
+  end
 end
 
 class Player
 
-  DIGESTION_TIME = 30
+  DIGESTION_TIME = 60
   SPEED = 5
 
   def initialize(window)
